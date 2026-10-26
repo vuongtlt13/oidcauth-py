@@ -1,0 +1,44 @@
+name: Publish
+
+# Push a tag vX.Y.Z (same as `version` in pyproject.toml) to publish to PyPI.
+# Uses PyPI Trusted Publishing: no API token; the PyPI project trusts this
+# repository, workflow file (publish.yml) and environment (pypi).
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  tests:
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    needs: tests
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/oidcauth-py
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Check tag matches version
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml)
+          test "v$version" = "$GITHUB_REF_NAME" || {
+            echo "tag $GITHUB_REF_NAME does not match version $version"
+            exit 1
+          }
+
+      - name: Build artifacts
+        run: uv build
+
+      - name: Publish to PyPI
+        run: uv publish --trusted-publishing always
