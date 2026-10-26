@@ -46,7 +46,7 @@ tên khác.
 | `token_endpoint_auth_method` | — | Mặc định `AUTH_METHOD_AUTO` (tự chọn); chỉ đặt khi cần ép một phương thức |
 | `redirect_url` | `AUTH_OIDC_REDIRECT_URL` | URL tuyệt đối của callback, phải đăng ký ở provider |
 | `scopes` | `AUTH_OIDC_SCOPES` | Mặc định `openid profile email`, cách nhau bởi dấu cách (trong `Config` là `list[str]`) |
-| — (`LoginOptions.extra_scopes`) | `AUTH_OIDC_<KEY>_EXTRA_SCOPES` | Scope thêm cho một nút login, vd. `urn:zitadel:iam:org:id:<org>` |
+| — (`LoginOptions.extra_scopes`) | `AUTH_OIDC_EXTRA_SCOPES`, `AUTH_OIDC_<KEY>_EXTRA_SCOPES` | Scope thêm cho một nút login, vd. `urn:zitadel:iam:org:id:<org>` |
 | — (`LoginOptions.params`) | `AUTH_OIDC_<KEY>_PARAMS` | Tham số authorize thêm, dạng `k:v,k:v` (vd. `hd:example.com`) |
 | `acr_values`, `require_acr`, `max_age` | — | Yêu cầu mức xác thực / đăng nhập lại (`max_age` là `timedelta`); xem README thư viện |
 | `cookie_secret` | `AUTH_OIDC_COOKIE_SECRET` | ≥ 32 ký tự: `openssl rand -base64 32`. Đổi giá trị chỉ làm hỏng các login đang dở |

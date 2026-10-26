@@ -22,6 +22,7 @@ có lý do chi tiết; tìm theo `oidc` hoặc `zitadel idp login`.
 | Mã | Nguyên nhân | Cách sửa |
 |---|---|---|
 | `not_linked` | Đăng nhập provider thành công nhưng không khớp user nào của app (`LINK_*`); hoặc (04) Zitadel không tìm / tạo được user | Tạo user app cùng email (email Zitadel phải **verified**), hoặc liên kết ở Profile. Với 04: bật auto-link / **Automatic creation** của IdP, đặt scope org, kiểm tra Google trả đủ họ + tên |
+| `not_linked` ở nút thứ hai (vd. Google) trong khi nút kia (Viset ID) vào được | Cùng email nhưng hai user Zitadel ở hai org (nút chính không ghim org, hoặc hai nút ghim hai org khác nhau): user app đã liên kết user Zitadel thứ nhất, mà mỗi user app chỉ liên kết **một** tài khoản cho mỗi issuer | Ghim cùng một org cho mọi nút: `AUTH_OIDC_EXTRA_SCOPES` và `AUTH_OIDC_<KEY>_EXTRA_SCOPES` = `urn:zitadel:iam:org:id:<org id>` ([02](02-roles-and-orgs.md)); rồi hủy liên kết cũ ở Profile (hoặc xoá dòng trong `user_identities`) |
 | `user_inactive` | User app bị khoá, hoặc user Zitadel bị deactivate / lock | Mở khoá |
 | `not_allowed` | Không đạt `REQUIRED_CLAIMS` (vd. `hd`); hoặc (04) user ở org khác scope, org tắt **External Login allowed**, IdP không cho linking ở org đó | Kiểm tra `EXTRA_SCOPES` org, **Login Behavior and Security**, tuỳ chọn IdP |
 | `access_denied` | Project check: thiếu role assignment hoặc org chưa được Project Grant | [02 §2](02-roles-and-orgs.md#2-chặn-user-không-có-quyền-vào-app) |

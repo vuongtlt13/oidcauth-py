@@ -77,11 +77,18 @@ org đó.
 1. **Organization** (chọn đúng org) → copy **Organization ID**.
 2. Thêm scope `urn:zitadel:iam:org:id:<Organization ID>`:
 
-   - Cho **mọi** login của app:
+   - Cho nút login **chính** (Viset ID):
 
      ```dotenv
-     AUTH_OIDC_SCOPES="openid profile email urn:zitadel:iam:org:id:<org id>"
+     AUTH_OIDC_EXTRA_SCOPES=urn:zitadel:iam:org:id:<org id>
      ```
+
+     Nút dùng lại client này (`VIA`, vd. Google qua Zitadel) **không** kế thừa
+     scope trên: đặt cùng org vào `AUTH_OIDC_<KEY>_EXTRA_SCOPES` của nút đó.
+     Nếu hai nút trỏ hai org khác nhau (hoặc nút chính không ghim org), cùng
+     một email có thể ra hai user Zitadel khác nhau; user app đã liên kết với
+     user thứ nhất sẽ nhận `not_linked` ở nút kia (mỗi user app chỉ liên kết
+     một tài khoản cho mỗi issuer).
 
    - Chỉ cho **một nút** login (provider phụ dùng lại client chính):
 
