@@ -1,6 +1,6 @@
 [project]
 name = "oidcauth-py"
-version = "0.1.1"
+version = "0.2.0"
 description = "OpenID Connect login for Python web apps: authorization code + PKCE, encrypted flow cookie, ID token verification, refresh, revocation, RP-initiated and back-channel logout, a FastAPI/Starlette adapter, a fake provider for tests, and Zitadel's headless identity provider login."
 readme = "README.md"
 requires-python = ">=3.10, <4.0"
