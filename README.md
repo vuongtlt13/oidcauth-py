@@ -402,7 +402,8 @@ app.add_api_route("/auth/google/idp/callback", idp.callback, methods=["GET"])
   - *auto-linking* by verified email (exactly one matching user) or by
     username, if the user's org allows external IdPs and offers this IdP for
     linking;
-  - *auto-creation* (needs given and family name) into the org of the
+  - *auto-creation* (a missing given or family name takes the other one, the
+    display name or the email's local part) into the org of the
     `urn:zitadel:iam:org:id:` scope, or else the default org.
 - **Errors** (`isinstance`; all `LoginError` subclasses carry `.detail`):
 

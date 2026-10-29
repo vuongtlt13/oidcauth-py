@@ -187,6 +187,34 @@ async def test_auto_creates(env: Env, scope: list[str], org: str) -> None:
     assert env.fake.session_user == NEW_USER_ID
 
 
+@pytest.mark.parametrize(
+    "given, family, want",
+    [
+        ("An", "", ("An", "An")),
+        ("", "Nguyen", ("Nguyen", "Nguyen")),
+        ("", " ", ("new", "new")),
+    ],
+    ids=["no family name", "no given name", "no names"],
+)
+async def test_auto_creates_with_missing_names(
+    env: Env, given: str, family: str, want: tuple[str, str]
+) -> None:
+    env.fake.is_auto_creation = True
+    env.fake.external = External(
+        id="g-1",
+        email="new@gmail.com",
+        verified=True,
+        given_name=given,
+        family_name=family,
+    )
+
+    assert await env.login("/") == "/", env.err
+    assert len(env.fake.created) == 1
+    profile = env.fake.created[0]["human"]["profile"]
+    assert (profile["givenName"], profile["familyName"]) == want
+    assert env.fake.session_user == NEW_USER_ID
+
+
 def _not_linked(f: FakeZitadel) -> None:
     f.external = External(id="g-1", email="a@gmail.com", verified=True)
 
@@ -217,11 +245,6 @@ def _outside_org(f: FakeZitadel) -> None:
     f.external = External(id="g-1", linked_to="u1")
 
 
-def _create_without_names(f: FakeZitadel) -> None:
-    f.is_auto_creation = True
-    f.external = External(id="g-1", email="a@gmail.com", verified=True)
-
-
 def _inactive(f: FakeZitadel) -> None:
     f.users["u1"] = User(id="u1", org_id=DEFAULT_ORG_ID, state=USER_STATE_INACTIVE)
     f.external = External(id="g-1", linked_to="u1")
@@ -247,7 +270,6 @@ def _no_grant(f: FakeZitadel) -> None:
         (_several_matches, NotLinkedError, False),
         (_org_without_idp, NotAllowedError, False),
         (_outside_org, NotAllowedError, False),
-        (_create_without_names, NotLinkedError, False),
         (_inactive, UserInactiveError, False),
         (_force_mfa, MFARequiredError, False),
         # Zitadel checks the project grant when completing the auth request,
@@ -260,7 +282,6 @@ def _no_grant(f: FakeZitadel) -> None:
         "auto-link with several matches",
         "auto-link into an org without the idp",
         "user outside the requested org",
-        "auto-create without names",
         "inactive user",
         "org forces MFA",
         "no project grant",

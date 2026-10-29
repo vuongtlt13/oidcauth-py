@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import NoReturn
+import copy
+from typing import Any, NoReturn
 
 from .client import (
     AUTO_LINKING_EMAIL,
@@ -156,14 +157,12 @@ class IDPLogin:
                 reason = f"auto-linking by {opts.auto_linking} matches {len(users)} users {ids}"
 
         if opts.is_auto_creation and new_user is not None and intent.create_user:
-            # CreateUser requires both names; the login UI asks for missing ones.
-            if not new_user.given_name or not new_user.family_name:
-                raise NotLinkedError(
-                    f"{reason}, auto-creation needs given and family name"
-                )
+            request = _with_names(intent.create_user)
+            if request is None:
+                raise NotLinkedError(f"{reason}, auto-creation needs a name")
             if not org_id:
                 org_id = await self.api.default_org_id()
-            user_id = await self.api.create_user(org_id, intent.create_user)
+            user_id = await self.api.create_user(org_id, request)
             return User(user_id=user_id, resource_owner=org_id)
         raise NotLinkedError(f"idp {self._idp_id}: {reason}")
 
@@ -181,6 +180,38 @@ class IDPLogin:
                 f"org {org_id} does not offer identity provider {self._idp_id} "
                 f"for linking (it offers {ids})"
             )
+
+
+def _with_names(create_user: dict[str, Any]) -> dict[str, Any] | None:
+    """create_user with both names, which CreateUser requires (the login UI
+    asks for missing ones). Many accounts lack one, e.g. Google accounts with
+    a single name: a missing name takes the other, else the display name,
+    else the email's local part, else the username. None when there is
+    nothing to use."""
+    request = copy.deepcopy(create_user)
+    human = request.get("human")
+    if not isinstance(human, dict):
+        return None
+    profile = human.get("profile")
+    if not isinstance(profile, dict):
+        profile = human["profile"] = {}
+    email = human.get("email")
+    email = email.get("email") if isinstance(email, dict) else None
+    fallbacks = (
+        profile.get("givenName"),
+        profile.get("familyName"),
+        profile.get("displayName"),
+        email.partition("@")[0] if isinstance(email, str) else None,
+        request.get("username"),
+    )
+    name = next((v.strip() for v in fallbacks if isinstance(v, str) and v.strip()), "")
+    if not name:
+        return None
+    for key in ("givenName", "familyName"):
+        value = profile.get(key)
+        if not isinstance(value, str) or not value.strip():
+            profile[key] = name
+    return request
 
 
 def _raise_auth_request_error(err: ZitadelError) -> NoReturn:
