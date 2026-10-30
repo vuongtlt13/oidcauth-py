@@ -429,6 +429,55 @@ class Client:
 
     # -- tokens --------------------------------------------------------------
 
+    async def verify_id_token(
+        self,
+        raw: str,
+        *,
+        access_token: str = "",
+        audience: str = "",
+        nonce: str | None = None,
+        max_age: timedelta | None = None,
+    ) -> Identity:
+        """Verifies an ID token obtained elsewhere, typically by a native or
+        single-page app that logged in itself (authorization code + PKCE) and
+        sends its tokens to this backend, and returns its identity.
+
+        It checks the signature (JWKS), iss, aud, azp, exp and iat like
+        finish. audience is the client the token was issued to, default
+        Config.client_id: set it to the app's client id, which may belong to
+        another project of the same provider. nonce, when given, must match.
+        max_age bounds the token age (now - iat), which limits the replay of a
+        leaked token to that window. With access_token, at_hash is checked
+        and, unless skip_userinfo is set, userinfo claims are merged (Zitadel
+        leaves profile and email out of ID tokens unless "User Info inside ID
+        Token" is set on the app).
+
+        Raises TokenError for an invalid token, UserInfoError when userinfo
+        fails."""
+        if not raw:
+            raise TokenError("id token", "id token is empty")
+        try:
+            claims = await self._verify_id_token(
+                raw,
+                nonce=nonce,
+                access_token=access_token,
+                audience=audience or self._cfg.client_id,
+            )
+            if max_age is not None:
+                iat = _num(claims, "iat") or 0
+                if self._now() - iat > max_age.total_seconds() + CLOCK_SKEW:
+                    raise _InvalidToken("token is older than max_age")
+        except _InvalidToken as e:
+            raise TokenError("id token", e) from None
+        if access_token:
+            identity = await self._identity(claims, access_token)
+        else:
+            identity = identity_from_claims(dict(claims), self._cfg.role_extractor)
+        identity.tokens = Tokens(
+            id_token=raw, access_token=access_token, token_type="Bearer"
+        )
+        return identity
+
     async def refresh(self, refresh_token: str) -> RefreshResult:
         """Exchanges a refresh token for new tokens (OpenID Connect Core 1.0,
         section 12). A refresh token is only issued when offline_access was
@@ -716,18 +765,24 @@ class Client:
         return dict(token.header), dict(token.claims)
 
     async def _verify_id_token(
-        self, raw: str, *, nonce: str | None, access_token: str
+        self,
+        raw: str,
+        *,
+        nonce: str | None,
+        access_token: str,
+        audience: str = "",
     ) -> dict[str, Any]:
+        client_id = audience or self._cfg.client_id
         header, claims = await self._verify_signature(raw)
         if claims.get("iss") != self._cfg.issuer:
             raise _InvalidToken(f'iss "{claims.get("iss")}" does not match issuer')
         aud = _audience(claims)
-        if self._cfg.client_id not in aud:
+        if client_id not in aud:
             raise _InvalidToken("aud does not contain client id")
         azp = claims.get("azp")
         if len(aud) > 1 and not azp:
             raise _InvalidToken("azp is required with several audiences")
-        if azp and azp != self._cfg.client_id:
+        if azp and azp != client_id:
             raise _InvalidToken(f'azp "{azp}" is not the client id')
         now = self._now()
         exp = _num(claims, "exp")

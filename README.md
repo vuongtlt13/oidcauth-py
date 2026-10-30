@@ -33,6 +33,8 @@ templates. It provides:
   **userinfo**.
 - RP-initiated logout (`logout_url`) and **back-channel logout** token
   verification (`verify_logout_token`).
+- **ID tokens from native apps** (`verify_id_token`): a mobile app logs in
+  itself and the backend verifies its ID token.
 - Client authentication: `client_secret_basic`, `client_secret_post`,
   `private_key_jwt` and `none` (public client + PKCE).
 - A **FastAPI / Starlette adapter** (`oidcauth.fastapi`) and an in-process
@@ -294,6 +296,30 @@ Most apps do not need these. They are for apps that call provider APIs on
 behalf of the user, or that want to tie their own session lifetime to the
 provider grant.
 
+## ID tokens from native apps
+
+A mobile or desktop app logs in itself (authorization code + PKCE in the
+system browser, as a public client) and sends its ID token to the backend,
+which verifies it and issues its own session:
+
+```python
+from datetime import timedelta
+
+identity = await client.verify_id_token(
+    id_token,
+    access_token=access_token,     # optional: checks at_hash, merges userinfo
+    audience="native-app-client",  # the app's client id; default Config.client_id
+    nonce=nonce,                   # optional: when the app sends its nonce
+    max_age=timedelta(minutes=5),  # optional: refuse older tokens (now - iat)
+)
+```
+
+It checks the signature, `iss`, `aud`, `azp`, `exp` and `iat` like a browser
+login, and raises `TokenError` for an invalid token. The app's client may
+belong to another project of the same provider: only the issuer must match.
+An ID token is a bearer proof of the login, so keep `max_age` short and the
+transport on HTTPS.
+
 ## Logout
 
 ```python
@@ -402,7 +428,8 @@ app.add_api_route("/auth/google/idp/callback", idp.callback, methods=["GET"])
   - *auto-linking* by verified email (exactly one matching user) or by
     username, if the user's org allows external IdPs and offers this IdP for
     linking;
-  - *auto-creation* (needs given and family name) into the org of the
+  - *auto-creation* (a missing given or family name takes the other one, the
+    display name or the email's local part) into the org of the
     `urn:zitadel:iam:org:id:` scope, or else the default org.
 - **Errors** (`isinstance`; all `LoginError` subclasses carry `.detail`):
 
